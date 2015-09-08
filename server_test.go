@@ -25,7 +25,10 @@ func TestServer(t *testing.T) {
 	w.Add(2)
 
 	go func() {
-		conn := <-serv.Accept()
+		conn, err := serv.Accept()
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if msg, err := conn.Read(); err != nil {
 			t.Fatal(err)
