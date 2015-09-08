@@ -2,56 +2,57 @@ package fastcall
 
 import (
 	"bytes"
-	"net"
+	"sync"
 	"testing"
-	"time"
 )
 
 func TestServer(t *testing.T) {
-	s := NewServer("localhost:1337", func(req []byte) (res []byte) {
-		exp := []byte{5, 5, 5, 5}
-		if !bytes.Equal(req, exp) {
-			t.Fatal("wrong value")
-		}
+	serv, err := Serve("localhost:1337")
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		defer serv.Close()
+	}
 
-		return []byte{6, 6, 6, 6}
-	})
-
-	go s.Listen()
-	time.Sleep(time.Millisecond)
-
-	conn, err := net.Dial("tcp", "localhost:1337")
+	conn, err := Dial("localhost:1337")
 	if err != nil {
 		t.Fatal(err)
 	} else {
 		defer conn.Close()
 	}
 
-	c := NewConn(conn)
+	var w sync.WaitGroup
+	w.Add(2)
 
-	// first 4 bytes make the call id
-	src := []byte{1, 1, 1, 1, 5, 5, 5, 5}
-	if err := c.Write(src); err != nil {
-		t.Fatal(err)
-	}
+	go func() {
+		conn := <-serv.Accept()
 
-	dst, err := c.Read()
-	if err != nil {
-		t.Fatal(err)
-	}
+		if msg, err := conn.Read(); err != nil {
+			t.Fatal(err)
+		} else if !bytes.Equal(msg, []byte{1, 2, 3, 4}) {
+			t.Fatal("wrong value")
+		}
 
-	exp := []byte{1, 1, 1, 1, 6, 6, 6, 6}
-	if !bytes.Equal(exp, dst) {
-		t.Fatal("wrong value")
-	}
-}
+		if err := conn.Write([]byte{5, 6, 7, 8}); err != nil {
+			t.Fatal(err)
+		}
 
-func ExampleServer() {
-	s := NewServer("localhost:1337", func(req []byte) (res []byte) {
-		return req
-	})
+		w.Done()
+	}()
 
-	if err := s.Listen(); err != nil {
-		panic(err)
-	}
+	go func() {
+		if err := conn.Write([]byte{1, 2, 3, 4}); err != nil {
+			t.Fatal(err)
+		}
+
+		if msg, err := conn.Read(); err != nil {
+			t.Fatal(err)
+		} else if !bytes.Equal(msg, []byte{5, 6, 7, 8}) {
+			t.Fatal("wrong value")
+		}
+
+		w.Done()
+	}()
+
+	w.Wait()
 }

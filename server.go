@@ -1,84 +1,50 @@
 package fastcall
 
-import (
-	"net"
+import "net"
 
-	"github.com/kadirahq/go-tools/logger"
-)
-
-// Handler handles all method calls
-type Handler func(req []byte) (res []byte)
-
-// Server responds to method calls
+// Server listens for new connections
 type Server struct {
-	address  string
-	listener net.Listener
-	handler  Handler
+	recv chan *Conn
+	lsnr net.Listener
 }
 
-// NewServer creates a server
-func NewServer(addr string, fn Handler) (s *Server) {
-	return &Server{address: addr, handler: fn}
-}
-
-// Listen starts listening
-func (s *Server) Listen() (err error) {
-	s.listener, err = net.Listen("tcp", s.address)
+// Serve creates a listener and accepts connections
+func Serve(addr string) (s *Server, err error) {
+	lsnr, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for {
-		conn, err := s.listener.Accept()
-		if err != nil {
-			logger.Print("fastcall", "error:", err)
-			break
-		}
+	ch := make(chan *Conn)
+	s = &Server{recv: ch, lsnr: lsnr}
+	go s.accept()
 
-		go s.handleConn(conn)
+	return s, nil
+}
+
+// Close stops accepting connections
+func (s *Server) Close() (err error) {
+	if err := s.lsnr.Close(); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-// Close stops the listener
-func (s *Server) Close() (err error) {
-	return s.listener.Close()
+// Accept returns a channel of connections
+func (s *Server) Accept() (ch chan *Conn) {
+	return s.recv
 }
 
-func (s *Server) handleConn(conn net.Conn) {
-	defer conn.Close()
-	c := NewConn(conn)
-	p := []byte{}
-
+func (s *Server) accept() {
 	for {
-		in, err := c.Read()
+		conn, err := s.lsnr.Accept()
 		if err != nil {
-			logger.Print("fastcall", "error:", err)
 			break
 		}
 
-		sz := len(in)
-		if sz < 4 {
-			logger.Print("fastcall", "error:", "invalid id")
-			break
-		}
-
-		cid := in[:4]
-		req := in[4:]
-		res := s.handler(req)
-
-		if sz+4 > len(p) {
-			p = make([]byte, sz+4)
-		}
-
-		out := p[:0]
-		out = append(out, cid...)
-		out = append(out, res...)
-
-		if err := c.Write(out); err != nil {
-			logger.Print("fastcall", "error:", err)
-			break
-		}
+		s.recv <- &Conn{conn: conn}
 	}
+
+	close(s.recv)
 }
