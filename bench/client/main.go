@@ -26,17 +26,25 @@ func main() {
 		}
 	}()
 
-	pld := make([]byte, 1024)
+	echo := func() {
+		pld := make([]byte, 1024)
 
-	for {
-		if err := conn.Write(pld); err != nil {
-			break
+		for {
+			if err := conn.Write(pld); err != nil {
+				break
+			}
+
+			if _, err := conn.Read(); err != nil {
+				break
+			}
+
+			atomic.AddUint64(&counter, 1)
 		}
-
-		if _, err := conn.Read(); err != nil {
-			break
-		}
-
-		atomic.AddUint64(&counter, 1)
 	}
+
+	for i := 0; i < 5000; i++ {
+		go echo()
+	}
+
+	select {}
 }
