@@ -6,18 +6,28 @@ import (
 	"sync"
 )
 
-// Conn does net stuff
-// TODO write comment
+// Conn sends and receives binary messages over tcp
 type Conn struct {
-	conn  net.Conn
-	rmutx sync.Mutex
-	wmutx sync.Mutex
+	conn net.Conn
+	rmtx sync.Mutex
+	wmtx sync.Mutex
+}
+
+// Dial creates a connection to given address
+func Dial(addr string) (c *Conn, err error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	c = &Conn{conn: conn}
+	return c, err
 }
 
 // Read reads a message from connection
 func (c *Conn) Read() (b []byte, err error) {
-	c.rmutx.Lock()
-	defer c.rmutx.Unlock()
+	c.rmtx.Lock()
+	defer c.rmtx.Unlock()
 
 	var sz int
 	var szu32 uint32
@@ -45,8 +55,8 @@ func (c *Conn) Read() (b []byte, err error) {
 
 // Write writes a message to the connection
 func (c *Conn) Write(b []byte) (err error) {
-	c.wmutx.Lock()
-	defer c.wmutx.Unlock()
+	c.wmtx.Lock()
+	defer c.wmtx.Unlock()
 
 	sz := len(b)
 	szu32 := uint32(sz)
@@ -64,6 +74,21 @@ func (c *Conn) Write(b []byte) (err error) {
 		}
 
 		toWrite = toWrite[n:]
+	}
+
+	return nil
+}
+
+// Close closes the connection
+func (c *Conn) Close() (err error) {
+	c.rmtx.Lock()
+	defer c.rmtx.Unlock()
+
+	c.wmtx.Lock()
+	defer c.wmtx.Unlock()
+
+	if err := c.conn.Close(); err != nil {
+		return err
 	}
 
 	return nil

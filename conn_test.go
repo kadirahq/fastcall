@@ -22,7 +22,7 @@ func TestConn(t *testing.T) {
 		defer conn.Close()
 	}
 
-	c := NewConn(conn)
+	c := &Conn{conn: conn}
 	var w sync.WaitGroup
 	w.Add(1)
 
@@ -32,7 +32,7 @@ func TestConn(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		d := NewConn(conn)
+		d := &Conn{conn: conn}
 		dst, err := d.Read()
 		if err != nil {
 			t.Fatal(err)
@@ -70,7 +70,7 @@ func BenchmarkConn(b *testing.B) {
 		defer conn.Close()
 	}
 
-	c := NewConn(conn)
+	c := &Conn{conn: conn}
 	var w sync.WaitGroup
 	w.Add(b.N)
 
@@ -81,7 +81,7 @@ func BenchmarkConn(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			d := NewConn(conn)
+			d := &Conn{conn: conn}
 
 			for {
 				if _, err := d.Read(); err == nil {
