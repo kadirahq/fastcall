@@ -14,11 +14,6 @@ type Conn struct {
 	wmutx sync.Mutex
 }
 
-// NewConn creates a connection
-func NewConn(conn net.Conn) (c *Conn) {
-	return &Conn{conn: conn}
-}
-
 // Read reads a message from connection
 func (c *Conn) Read() (b []byte, err error) {
 	c.rmutx.Lock()
