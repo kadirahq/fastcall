@@ -1,2 +1,2 @@
 # fastcall
-A really simple and fast binary rpc middleware 
+A fast bi-directional communication layer over tcp.
