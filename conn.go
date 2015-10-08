@@ -18,6 +18,9 @@ type Conn struct {
 	wmtx   sync.Mutex
 }
 
+// ErrNotBuffered is returned when an unbuffered connection is tried to flush
+var ErrNotBuffered = errors.New("not buffered")
+
 // Dial creates a connection to given address
 func Dial(addr string) (c *Conn, err error) {
 	conn, err := net.Dial("tcp", addr)
@@ -100,15 +103,18 @@ func (c *Conn) Write(b []byte) (err error) {
 	return nil
 }
 
+// FlushWriter sends all buffered data
+// If attempted on an unbuffered connection will return ErrNotBuffered
 func (c *Conn) FlushWriter() (err error) {
 	bufWriter, ok := c.writer.(*bufio.Writer)
 	if ok {
 		c.wmtx.Lock()
-		defer c.wmtx.Unlock()
-		return flushWriter(bufWriter)
+		err = flushWriter(bufWriter)
+		c.wmtx.Unlock()
+		return
 	}
 
-	return errors.New("not buffered")
+	return ErrNotBuffered
 }
 
 func flushWriter(writer *bufio.Writer) (err error) {
