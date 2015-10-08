@@ -11,7 +11,7 @@ import (
 
 // Conn sends and receives binary messages over tcp
 type Conn struct {
-	conn   net.Conn
+	closer io.Closer
 	reader io.Reader
 	writer io.Writer
 	rmtx   sync.Mutex
@@ -21,6 +21,28 @@ type Conn struct {
 // ErrNotBuffered is returned when an unbuffered connection is tried to flush
 var ErrNotBuffered = errors.New("not buffered")
 
+// New wraps a connection
+func New(conn net.Conn) (c *Conn) {
+	c = &Conn{
+		closer: conn,
+		reader: conn,
+		writer: conn,
+	}
+
+	return c
+}
+
+// NewBuf wraps a connection (buffered)
+func NewBuf(conn net.Conn) (c *Conn) {
+	c = &Conn{
+		closer: conn,
+		writer: bufio.NewWriter(conn),
+		reader: bufio.NewReader(conn),
+	}
+
+	return c
+}
+
 // Dial creates a connection to given address
 func Dial(addr string) (c *Conn, err error) {
 	conn, err := net.Dial("tcp", addr)
@@ -28,8 +50,7 @@ func Dial(addr string) (c *Conn, err error) {
 		return nil, err
 	}
 
-	c = &Conn{conn: conn, reader: conn, writer: conn}
-	return c, err
+	return New(conn), nil
 }
 
 // DialBuf is similar to Dial except writes from the returned connection
@@ -40,12 +61,7 @@ func DialBuf(addr string) (c *Conn, err error) {
 		return nil, err
 	}
 
-	c = &Conn{
-		conn:   conn,
-		writer: bufio.NewWriter(conn),
-		reader: conn,
-	}
-	return c, err
+	return NewBuf(conn), nil
 }
 
 // Read reads a message from connection
@@ -138,7 +154,7 @@ func (c *Conn) Close() (err error) {
 		flushWriter(bufWriter)
 	}
 
-	if err := c.conn.Close(); err != nil {
+	if err := c.closer.Close(); err != nil {
 		return err
 	}
 
