@@ -1,9 +1,6 @@
 package fastcall
 
-import (
-	"bufio"
-	"net"
-)
+import "net"
 
 // Server listens for new connections
 type Server struct {
@@ -36,8 +33,7 @@ func (s *Server) Accept() (c *Conn, err error) {
 		return nil, err
 	}
 
-	c = &Conn{conn: conn, writer: conn, reader: conn}
-	return c, nil
+	return New(conn), nil
 }
 
 // AcceptBuf is similar to Accept except writes in the connection are
@@ -48,10 +44,5 @@ func (s *Server) AcceptBuf() (c *Conn, err error) {
 		return nil, err
 	}
 
-	c = &Conn{
-		conn:   conn,
-		writer: bufio.NewWriter(conn),
-		reader: conn,
-	}
-	return c, nil
+	return NewBuf(conn), nil
 }
