@@ -1,6 +1,9 @@
 package fastcall
 
-import "net"
+import (
+	"bufio"
+	"net"
+)
 
 // Server listens for new connections
 type Server struct {
@@ -27,11 +30,28 @@ func (s *Server) Close() (err error) {
 }
 
 // Accept returns a channel of connections
-func (s *Server) Accept() (conn *Conn, err error) {
-	c, err := s.lsnr.Accept()
+func (s *Server) Accept() (c *Conn, err error) {
+	conn, err := s.lsnr.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Conn{conn: c}, nil
+	c = &Conn{conn: conn, writer: conn, reader: conn}
+	return c, nil
+}
+
+// AcceptBuf is similar to Accept except writes in the connection are
+// buffered
+func (s *Server) AcceptBuf() (c *Conn, err error) {
+	conn, err := s.lsnr.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	c = &Conn{
+		conn:   conn,
+		writer: bufio.NewWriter(conn),
+		reader: conn,
+	}
+	return c, nil
 }
